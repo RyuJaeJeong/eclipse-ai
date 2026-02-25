@@ -1,4 +1,4 @@
-package de.hetzge.eclipse.aicoder.context;
+package com.finance.eclipse.suggestion.model.context;
 
 import java.time.Duration;
 import java.util.Arrays;
@@ -13,13 +13,13 @@ import org.eclipse.jdt.core.IPackageFragment;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.swt.graphics.Image;
 
-import de.hetzge.eclipse.aicoder.AiCoderActivator;
-import de.hetzge.eclipse.aicoder.AiCoderImageKey;
-import de.hetzge.eclipse.aicoder.util.ContextUtils;
-import de.hetzge.eclipse.aicoder.util.JavaProjectUtils;
-import de.hetzge.eclipse.aicoder.util.JdtUtils;
-import de.hetzge.eclipse.aicoder.util.LambdaExceptionUtils;
-import de.hetzge.eclipse.aicoder.util.Utils;
+import com.finance.eclipse.suggestion.AiActivator;
+import com.finance.eclipse.suggestion.AiImageKey;
+import com.finance.eclipse.suggestion.utils.ContextUtils;
+import com.finance.eclipse.suggestion.utils.JavaProjectUtils;
+import com.finance.eclipse.suggestion.utils.JdtUtils;
+import com.finance.eclipse.suggestion.utils.LambdaExceptionUtils;
+import com.finance.eclipse.suggestion.utils.Utils;
 
 public class PackageContextEntry extends ContextEntry {
 
@@ -49,7 +49,7 @@ public class PackageContextEntry extends ContextEntry {
 
 	@Override
 	public Image getImage() {
-		return AiCoderActivator.getImage(AiCoderImageKey.PACKAGE_ICON);
+		return AiActivator.getImage(AiImageKey.PACKAGE_ICON);
 	}
 
 	public static ContextEntryFactory factory(ICompilationUnit unit) {

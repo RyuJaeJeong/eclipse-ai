@@ -1,13 +1,15 @@
-package de.hetzge.eclipse.aicoder.context;
+package com.finance.eclipse.suggestion.model.context;
 
 import java.time.Duration;
 import java.util.List;
 
 import org.eclipse.swt.graphics.Image;
 
-import de.hetzge.eclipse.aicoder.AiCoderActivator;
-import de.hetzge.eclipse.aicoder.AiCoderImageKey;
-import de.hetzge.eclipse.aicoder.util.ContextUtils;
+import com.finance.eclipse.suggestion.AiActivator;
+import com.finance.eclipse.suggestion.AiImageKey;
+import com.finance.eclipse.suggestion.utils.ContextUtils;
+
+
 
 public class ProjectInformationContextEntry extends ContextEntry {
 
@@ -34,7 +36,7 @@ public class ProjectInformationContextEntry extends ContextEntry {
 
 	@Override
 	public Image getImage() {
-		return AiCoderActivator.getImage(AiCoderImageKey.INFORMATIONS_ICON);
+		return AiActivator.getImage(AiImageKey.INFORMATIONS_ICON);
 	}
 
 	@Override

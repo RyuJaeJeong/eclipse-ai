@@ -1,4 +1,4 @@
-package de.hetzge.eclipse.aicoder.context;
+package com.finance.eclipse.suggestion.model.context;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -15,11 +15,13 @@ import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.ui.JavaElementLabels;
 import org.eclipse.swt.graphics.Image;
 
-import de.hetzge.eclipse.aicoder.AiCoderActivator;
-import de.hetzge.eclipse.aicoder.AiCoderImageKey;
-import de.hetzge.eclipse.aicoder.util.ContextUtils;
-import de.hetzge.eclipse.aicoder.util.LambdaExceptionUtils;
-import de.hetzge.eclipse.aicoder.util.Utils;
+import com.finance.eclipse.suggestion.AiActivator;
+import com.finance.eclipse.suggestion.AiImageKey;
+import com.finance.eclipse.suggestion.utils.ContextUtils;
+import com.finance.eclipse.suggestion.utils.LambdaExceptionUtils;
+import com.finance.eclipse.suggestion.utils.Utils;
+
+
 
 public class TypeContextEntry extends ContextEntry {
 	public static final String PREFIX = "TYPE";
@@ -46,17 +48,17 @@ public class TypeContextEntry extends ContextEntry {
 	@Override
 	public Image getImage() {
 		if (this.signature.startsWith("class")) {
-			return AiCoderActivator.getImage(AiCoderImageKey.TYPE_ICON);
+			return AiActivator.getImage(AiImageKey.TYPE_ICON);
 		} else if (this.signature.startsWith("interface")) {
-			return AiCoderActivator.getImage(AiCoderImageKey.INTERFACE_ICON);
+			return AiActivator.getImage(AiImageKey.INTERFACE_ICON);
 		} else if (this.signature.startsWith("enum")) {
-			return AiCoderActivator.getImage(AiCoderImageKey.ENUM_ICON);
+			return AiActivator.getImage(AiImageKey.ENUM_ICON);
 		} else if (this.signature.startsWith("record")) {
-			return AiCoderActivator.getImage(AiCoderImageKey.RECORD_ICON);
+			return AiActivator.getImage(AiImageKey.RECORD_ICON);
 		} else if (this.signature.startsWith("@interface")) {
-			return AiCoderActivator.getImage(AiCoderImageKey.ANNOTATION_ICON);
+			return AiActivator.getImage(AiImageKey.ANNOTATION_ICON);
 		} else {
-			return AiCoderActivator.getImage(AiCoderImageKey.TYPE_ICON);
+			return AiActivator.getImage(AiImageKey.TYPE_ICON);
 		}
 	}
 

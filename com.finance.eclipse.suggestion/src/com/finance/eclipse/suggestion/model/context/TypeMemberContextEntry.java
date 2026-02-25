@@ -1,4 +1,4 @@
-package de.hetzge.eclipse.aicoder.context;
+package com.finance.eclipse.suggestion.model.context;
 
 import java.time.Duration;
 import java.util.List;
@@ -12,23 +12,30 @@ import org.eclipse.jdt.core.IMethod;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.ui.JavaElementLabels;
 
-import de.hetzge.eclipse.aicoder.util.EclipseUtils;
-import de.hetzge.eclipse.aicoder.util.LambdaExceptionUtils;
+import com.finance.eclipse.suggestion.utils.EclipseUtils;
+import com.finance.eclipse.suggestion.utils.LambdaExceptionUtils;
+
+
 
 public class TypeMemberContextEntry extends ContextEntry {
+	
+	// field
 	public static final String PREFIX = "TYPE_MEMBER";
-
 	private final IJavaElement element;
 	private final String signature;
 	private final String javadoc; // TODO javadoc as child
-
+	
+	// cons
 	private TypeMemberContextEntry(IJavaElement element, String signature, String javadoc, Duration creationDuration) {
 		super(List.of(), creationDuration);
 		this.element = element;
 		this.signature = signature;
 		this.javadoc = javadoc;
 	}
-
+	
+	
+	// method
+	
 	@Override
 	public String getLabel() {
 		return this.signature;
@@ -46,7 +53,6 @@ public class TypeMemberContextEntry extends ContextEntry {
 
 	@Override
 	public String getContent(ContextContext context) {
-		// TODO javadoc
 		return String.format("  %s;\n", this.signature);
 	}
 
@@ -72,4 +78,5 @@ public class TypeMemberContextEntry extends ContextEntry {
 		return Optional.ofNullable(JavaCore.create(key.value()))
 				.map(LambdaExceptionUtils.rethrowFunction(TypeMemberContextEntry::create));
 	}
+	
 }

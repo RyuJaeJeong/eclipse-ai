@@ -1,10 +1,12 @@
-package de.hetzge.eclipse.aicoder.context;
+package com.finance.eclipse.suggestion.model.context;
 
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 
-import de.hetzge.eclipse.aicoder.preferences.ContextPreferences;
+import com.finance.eclipse.suggestion.preference.ContextPreferences;
+
+
 
 public class UserContextEntry extends ContextEntry {
 	public static final String PREFIX = "USER";

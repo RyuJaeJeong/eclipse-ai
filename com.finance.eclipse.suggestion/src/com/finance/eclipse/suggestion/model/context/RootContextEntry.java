@@ -16,6 +16,7 @@ import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.ui.IEditorInput;
 
+import com.finance.eclipse.suggestion.preference.ContextPreferences;
 import com.finance.eclipse.suggestion.utils.EclipseUtils;
 import com.finance.eclipse.suggestion.utils.LambdaExceptionUtils;
 

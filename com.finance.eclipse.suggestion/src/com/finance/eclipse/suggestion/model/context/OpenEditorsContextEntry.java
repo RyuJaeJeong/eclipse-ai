@@ -1,4 +1,4 @@
-package de.hetzge.eclipse.aicoder.context;
+package com.finance.eclipse.suggestion.model.context;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -19,21 +19,28 @@ import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.PlatformUI;
 
-import de.hetzge.eclipse.aicoder.AiCoderActivator;
-import de.hetzge.eclipse.aicoder.AiCoderImageKey;
-import de.hetzge.eclipse.aicoder.util.ContextUtils;
-import de.hetzge.eclipse.aicoder.util.EclipseUtils;
-import de.hetzge.eclipse.aicoder.util.LambdaExceptionUtils;
-import de.hetzge.eclipse.aicoder.util.Utils;
+import com.finance.eclipse.suggestion.AiActivator;
+import com.finance.eclipse.suggestion.AiImageKey;
+import com.finance.eclipse.suggestion.utils.ContextUtils;
+import com.finance.eclipse.suggestion.utils.EclipseUtils;
+import com.finance.eclipse.suggestion.utils.LambdaExceptionUtils;
+import com.finance.eclipse.suggestion.utils.Utils;
+
+
 
 public class OpenEditorsContextEntry extends ContextEntry {
-
+	
+	// field
 	public static final String PREFIX = "OPEN_EDITORS";
-
+	
+	// cons
 	private OpenEditorsContextEntry(List<? extends ContextEntry> childContextEntries, Duration creationDuration) {
 		super(childContextEntries, creationDuration);
 	}
-
+	
+	
+	// method
+	
 	@Override
 	public ContextEntryKey getKey() {
 		return new ContextEntryKey(PREFIX, PREFIX);
@@ -46,7 +53,7 @@ public class OpenEditorsContextEntry extends ContextEntry {
 
 	@Override
 	public Image getImage() {
-		return AiCoderActivator.getImage(AiCoderImageKey.EDITOR_ICON);
+		return AiActivator.getImage(AiImageKey.EDITOR_ICON);
 	}
 
 	@Override
@@ -83,7 +90,7 @@ public class OpenEditorsContextEntry extends ContextEntry {
 							return createFileContextEntry(input, editorRef.getPart(false));
 						}
 					} catch (final PartInitException exception) {
-						AiCoderActivator.log().info(String.format("Skipping editor '%s' due to error: %s", editorRef.getTitle(), exception.getMessage()));
+						AiActivator.log().info(String.format("Skipping editor '%s' due to error: %s", editorRef.getTitle(), exception.getMessage()));
 						return Stream.empty();
 					}
 				}))
@@ -112,4 +119,6 @@ public class OpenEditorsContextEntry extends ContextEntry {
 			throw new CoreException(Status.error("Failed to read file content", exception));
 		}
 	}
+	
+	
 }

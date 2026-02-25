@@ -1,4 +1,4 @@
-package de.hetzge.eclipse.aicoder.context;
+package com.finance.eclipse.suggestion.model.context;
 
 import java.time.Duration;
 import java.util.Arrays;
@@ -17,13 +17,14 @@ import org.eclipse.jdt.core.dom.IBinding;
 import org.eclipse.jdt.internal.corext.dom.ScopeAnalyzer;
 import org.eclipse.swt.graphics.Image;
 
-import de.hetzge.eclipse.aicoder.AiCoderActivator;
-import de.hetzge.eclipse.aicoder.AiCoderImageKey;
-import de.hetzge.eclipse.aicoder.preferences.AiCoderPreferences;
-import de.hetzge.eclipse.aicoder.util.ContextUtils;
-import de.hetzge.eclipse.aicoder.util.JdkUtils;
-import de.hetzge.eclipse.aicoder.util.LambdaExceptionUtils;
-import de.hetzge.eclipse.aicoder.util.Utils;
+import com.finance.eclipse.suggestion.AiActivator;
+import com.finance.eclipse.suggestion.AiImageKey;
+import com.finance.eclipse.suggestion.utils.ContextUtils;
+import com.finance.eclipse.suggestion.utils.JdkUtils;
+import com.finance.eclipse.suggestion.utils.LambdaExceptionUtils;
+import com.finance.eclipse.suggestion.utils.Utils;
+
+
 
 public class ScopeContextEntry extends ContextEntry {
 
@@ -50,7 +51,7 @@ public class ScopeContextEntry extends ContextEntry {
 
 	@Override
 	public Image getImage() {
-		return AiCoderActivator.getImage(AiCoderImageKey.SCOPE_ICON);
+		return AiActivator.getImage(AiImageKey.SCOPE_ICON);
 	}
 
 	public static ContextEntryFactory factory(ICompilationUnit unit, int offset) {
@@ -65,7 +66,7 @@ public class ScopeContextEntry extends ContextEntry {
 				.flatMap(LambdaExceptionUtils.rethrowFunction(binding -> {
 					if (binding.getJavaElement() instanceof final IType type) {
 						final String fullyQualifiedName = type.getFullyQualifiedName();
-						if (AiCoderPreferences.isIgnoreJreClasses() && JdkUtils.isJREPackage(fullyQualifiedName)) {
+						if (JdkUtils.isJREPackage(fullyQualifiedName)) {
 							return Stream.empty();
 						}
 						if (!Utils.checkType(type)) {
@@ -78,12 +79,12 @@ public class ScopeContextEntry extends ContextEntry {
 							return Stream.empty();
 						}
 						final String fullyQualifiedName = type.getFullyQualifiedName();
-						if (AiCoderPreferences.isIgnoreJreClasses() && JdkUtils.isJREPackage(fullyQualifiedName)) {
+						if (JdkUtils.isJREPackage(fullyQualifiedName)) {
 							return Stream.empty();
 						}
 						return Stream.of(TypeContextEntry.create(type));
 					} else {
-						AiCoderActivator.log().info("Skip binding: " + binding.getKey() + "/" +
+						AiActivator.log().info("Skip binding: " + binding.getKey() + "/" +
 								(binding.getJavaElement() != null ? binding.getJavaElement().getClass().getName() : "-"));
 						return Stream.empty();
 					}
@@ -105,4 +106,5 @@ public class ScopeContextEntry extends ContextEntry {
 	private static List<IBinding> getBindingsInScope(CompilationUnit compilationUnit, int position) {
 		return Arrays.asList(new ScopeAnalyzer(compilationUnit).getDeclarationsInScope(position, ScopeAnalyzer.VARIABLES | ScopeAnalyzer.TYPES | ScopeAnalyzer.CHECK_VISIBILITY));
 	}
+	
 }

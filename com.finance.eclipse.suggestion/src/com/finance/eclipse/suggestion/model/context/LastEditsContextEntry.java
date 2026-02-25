@@ -1,4 +1,4 @@
-package de.hetzge.eclipse.aicoder.context;
+package com.finance.eclipse.suggestion.model.context;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -17,11 +17,12 @@ import org.eclipse.ui.IEditorInput;
 import org.eclipse.ui.internal.texteditor.EditPosition;
 import org.eclipse.ui.internal.texteditor.TextEditorPlugin;
 
-import de.hetzge.eclipse.aicoder.AiCoderActivator;
-import de.hetzge.eclipse.aicoder.AiCoderImageKey;
-import de.hetzge.eclipse.aicoder.util.ContextUtils;
-import de.hetzge.eclipse.aicoder.util.EclipseUtils;
-import de.hetzge.eclipse.aicoder.util.LambdaExceptionUtils;
+import com.finance.eclipse.suggestion.AiActivator;
+import com.finance.eclipse.suggestion.AiImageKey;
+import com.finance.eclipse.suggestion.utils.ContextUtils;
+import com.finance.eclipse.suggestion.utils.EclipseUtils;
+import com.finance.eclipse.suggestion.utils.LambdaExceptionUtils;
+
 
 public class LastEditsContextEntry extends ContextEntry {
 
@@ -47,7 +48,7 @@ public class LastEditsContextEntry extends ContextEntry {
 
 	@Override
 	public Image getImage() {
-		return AiCoderActivator.getImage(AiCoderImageKey.BEFORE_ICON);
+		return AiActivator.getImage(AiImageKey.BEFORE_ICON);
 	}
 
 	@Override
@@ -95,7 +96,7 @@ public class LastEditsContextEntry extends ContextEntry {
 			}
 			return new LastEditsContextEntry(codeLocations, Duration.ofMillis(System.currentTimeMillis() - before));
 		} catch (final BadLocationException exception) {
-			throw new CoreException(new Status(IStatus.ERROR, AiCoderActivator.PLUGIN_ID, "Failed to create last edit context entry", exception));
+			throw new CoreException(new Status(IStatus.ERROR, AiActivator.PLUGIN_ID, "Failed to create last edit context entry", exception));
 		}
 	}
 

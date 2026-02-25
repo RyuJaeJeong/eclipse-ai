@@ -1,4 +1,4 @@
-package de.hetzge.eclipse.aicoder.context;
+package com.finance.eclipse.suggestion.model.context;
 
 import java.time.Duration;
 import java.util.List;
@@ -8,15 +8,16 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.ICompilationUnit;
 import org.eclipse.swt.graphics.Image;
 
-import de.hetzge.eclipse.aicoder.AiCoderActivator;
-import de.hetzge.eclipse.aicoder.AiCoderImageKey;
-import de.hetzge.eclipse.aicoder.preferences.AiCoderPreferences;
-import de.hetzge.eclipse.aicoder.util.ContextUtils;
-import de.hetzge.eclipse.aicoder.util.JdkUtils;
-import de.hetzge.eclipse.aicoder.util.LambdaExceptionUtils;
-import de.hetzge.eclipse.aicoder.util.Utils;
+import com.finance.eclipse.suggestion.AiActivator;
+import com.finance.eclipse.suggestion.AiImageKey;
+import com.finance.eclipse.suggestion.utils.ContextUtils;
+import com.finance.eclipse.suggestion.utils.JdkUtils;
+import com.finance.eclipse.suggestion.utils.LambdaExceptionUtils;
+import com.finance.eclipse.suggestion.utils.Utils;
+
 
 public class ImportsContextEntry extends ContextEntry {
+	
 	public static final String PREFIX = "IMPORTS";
 
 	public ImportsContextEntry(List<TypeContextEntry> childContextEntries, Duration creationDuration) {
@@ -35,7 +36,7 @@ public class ImportsContextEntry extends ContextEntry {
 
 	@Override
 	public Image getImage() {
-		return AiCoderActivator.getImage(AiCoderImageKey.IMPORT_ICON);
+		return AiActivator.getImage(AiImageKey.IMPORT_ICON);
 	}
 
 	@Override
@@ -53,7 +54,7 @@ public class ImportsContextEntry extends ContextEntry {
 				.parallel()
 				.filter(importDeclaration -> !importDeclaration.isOnDemand())
 				.map(importDeclaration -> importDeclaration.getElementName())
-				.filter(elementName -> !AiCoderPreferences.isIgnoreJreClasses() || !JdkUtils.isJREPackage(elementName))
+				.filter(elementName -> !JdkUtils.isJREPackage(elementName))
 				.map(LambdaExceptionUtils.rethrowFunction(unit.getJavaProject()::findType))
 				.filter(Utils::checkType)
 				.map(LambdaExceptionUtils.rethrowFunction(TypeContextEntry::create))
