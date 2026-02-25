@@ -51,27 +51,17 @@ public class RootContextEntry extends ContextEntry {
 		final Optional<ICompilationUnit> compilationUnitOptional = EclipseUtils.getCompilationUnit(editorInput);
 		final List<ContextEntryFactory> factories = new ArrayList<>();
 		factories.add(ProjectInformationsContextEntry.factory(project));
-		factories.add(FileTreeContextEntry.factory(editorInput));
-		factories.add(DependenciesContextEntry.factory(project));
-		factories.add(OpenEditorsContextEntry.factory());
-		factories.add(StickyContextEntry.factory());
-		factories.add(UserContextEntry.factory(path));
-		if (compilationUnitOptional.isPresent()) {
-			final ICompilationUnit unit = compilationUnitOptional.get();
-			factories.add(SuperContextEntry.factory(unit, offset));
-			factories.add(ScopeContextEntry.factory(unit, offset));
-			factories.add(ImportsContextEntry.factory(unit));
-			factories.add(PackageContextEntry.factory(unit));
-		}
+		final ICompilationUnit unit = compilationUnitOptional.get();
+		factories.add(SuperContextEntry.factory(unit, offset));
+		factories.add(ScopeContextEntry.factory(unit, offset));
+		factories.add(ImportsContextEntry.factory(unit));
+//		factories.add(PackageContextEntry.factory(unit));
 		factories.add(LastEditsContextEntry.factory());
-		factories.add(ClipboardContextEntry.factory());
 		factories.add(FillInMiddleContextEntry.factory(filename, document, offset));
 		final List<String> orderedPrefixes = ContextPreferences.getContextTypePositions().stream()
-				.filter(item -> item.enabled())
 				.map(item -> item.prefix())
 				.toList();
 		final List<ContextEntry> filteredAndSortedEntries = factories.parallelStream()
-				.filter(factory -> orderedPrefixes.contains(factory.prefix()))
 				.map(LambdaExceptionUtils.rethrowFunction(factory -> factory.supplier().get()))
 				.sorted(Comparator.comparingInt(entry -> orderedPrefixes.indexOf(entry.getKey().prefix())))
 				.toList();

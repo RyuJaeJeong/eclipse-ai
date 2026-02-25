@@ -12,6 +12,8 @@ import org.eclipse.ui.IWorkbenchWindow;
 import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.texteditor.ITextEditor;
 
+import com.finance.eclipse.suggestion.controller.InlineCompletionController;
+
 public class AiStartup implements IStartup {
 
 	@Override
@@ -24,7 +26,7 @@ public class AiStartup implements IStartup {
 				@Override
 				public void partActivated(IWorkbenchPartReference partRef) {
 					AiActivator.log().info("active page Opened!");
-					getTextEditor(partRef).ifPresent(null);
+					getTextEditor(partRef).ifPresent(InlineCompletionController::setup);
 				}
 
 				@Override
@@ -36,8 +38,9 @@ public class AiStartup implements IStartup {
 			for (IEditorReference editorReference : editorReferences) {
 				IEditorPart editor = editorReference.getEditor(false);
 				if(editor instanceof ITextEditor) {
-					ITextEditor textEditor = (ITextEditor) editor;
 					AiActivator.log().info("ITextEditor Opened!");
+					ITextEditor textEditor = (ITextEditor) editor;
+					InlineCompletionController.setup(textEditor);
 				}
 			}
 		}

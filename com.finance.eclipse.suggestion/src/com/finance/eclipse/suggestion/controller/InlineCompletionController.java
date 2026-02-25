@@ -1,5 +1,7 @@
 package com.finance.eclipse.suggestion.controller;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
@@ -49,6 +51,10 @@ import com.finance.eclipse.suggestion.Debouncer;
 import com.finance.eclipse.suggestion.model.CompletionMode;
 import com.finance.eclipse.suggestion.model.InlineCompletion;
 import com.finance.eclipse.suggestion.model.Suggestion;
+import com.finance.eclipse.suggestion.model.context.ContextContext;
+import com.finance.eclipse.suggestion.model.context.ContextEntry;
+import com.finance.eclipse.suggestion.model.context.FillInMiddleContextEntry;
+import com.finance.eclipse.suggestion.model.context.RootContextEntry;
 import com.finance.eclipse.suggestion.model.history.AiHistoryEntry;
 import com.finance.eclipse.suggestion.model.history.HistoryStatus;
 import com.finance.eclipse.suggestion.model.llm.LlmResponse;
@@ -138,6 +144,7 @@ public final class InlineCompletionController {
 	}
 	
 	private void triggerAutocomplete() {
+		System.out.println("triggerAutocomplete ==================");
 		final boolean isDocumentChanged = this.lastChangeCounter != this.changeCounter;
 		this.lastChangeCounter = this.changeCounter;
 //		if (!AiCoderPreferences.isAutocompleteEnabled()) {
@@ -160,7 +167,7 @@ public final class InlineCompletionController {
 		
 		this.debouncer.debounce(() -> {
 			if (!EclipseUtils.hasSelection(this.textViewer)) {
-//				trigger(null);
+				trigger(null);
 			}
 		});
 	}
@@ -171,6 +178,7 @@ public final class InlineCompletionController {
 	 */
 	public void trigger(String instruction){
 		AiActivator.log().info("Trigger");
+		System.out.println("Trigger ==================");
 		final long startTime = System.currentTimeMillis();
 		abort("Trigger");
 		final StyledText widget = InlineCompletionController.this.textViewer.getTextWidget();
@@ -212,6 +220,13 @@ public final class InlineCompletionController {
 						return Status.CANCEL_STATUS;
 					}
 					AiActivator.log().info("Calculate context");
+					final RootContextEntry rootContextEntry = RootContextEntry.create(document, this.textEditor.getEditorInput(), modelOffset);
+					final String contextString = ContextEntry.apply(rootContextEntry, new ContextContext());
+					final String[] contextParts = contextString.split(FillInMiddleContextEntry.FILL_HERE_PLACEHOLDER);
+					final String prefix = contextParts[0];
+					final String suffix = contextParts.length > 1 ? contextParts[1] : "";
+					System.out.println("prefix: " + prefix);
+					System.out.println("suffix: " + suffix);
 					return Status.OK_STATUS;
 				} catch (Exception e) {
 					AiActivator.log().error("AI Coder completion failed", e);
