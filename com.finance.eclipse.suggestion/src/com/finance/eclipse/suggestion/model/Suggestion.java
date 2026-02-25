@@ -3,6 +3,8 @@ package com.finance.eclipse.suggestion.model;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 
+import com.finance.eclipse.suggestion.model.history.AiHistoryEntry;
+
 public class Suggestion {
 	
 	// field

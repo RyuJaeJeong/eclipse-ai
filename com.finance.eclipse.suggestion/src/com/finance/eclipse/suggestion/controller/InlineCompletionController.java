@@ -8,14 +8,19 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 
+import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.ISchedulingRule;
 import org.eclipse.core.runtime.jobs.Job;
 import org.eclipse.jface.text.DocumentEvent;
+import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.IDocumentListener;
 import org.eclipse.jface.text.IPaintPositionManager;
 import org.eclipse.jface.text.IPainter;
 import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.jface.text.ITextViewer;
+import org.eclipse.jface.text.ITextViewerExtension2;
 import org.eclipse.jface.viewers.ISelection;
 import org.eclipse.jface.viewers.ISelectionChangedListener;
 import org.eclipse.jface.viewers.SelectionChangedEvent;
@@ -33,16 +38,26 @@ import org.eclipse.swt.graphics.FontMetrics;
 import org.eclipse.swt.graphics.GlyphMetrics;
 import org.eclipse.swt.graphics.Point;
 import org.eclipse.swt.widgets.Display;
+import org.eclipse.ui.IEditorInput;
+import org.eclipse.ui.IWorkbenchPage;
+import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.contexts.IContextActivation;
 import org.eclipse.ui.texteditor.ITextEditor;
 
+import com.finance.eclipse.suggestion.AiActivator;
 import com.finance.eclipse.suggestion.Debouncer;
+import com.finance.eclipse.suggestion.model.CompletionMode;
 import com.finance.eclipse.suggestion.model.InlineCompletion;
 import com.finance.eclipse.suggestion.model.Suggestion;
+import com.finance.eclipse.suggestion.model.history.AiHistoryEntry;
+import com.finance.eclipse.suggestion.model.history.HistoryStatus;
+import com.finance.eclipse.suggestion.model.llm.LlmResponse;
+import com.finance.eclipse.suggestion.utils.EclipseUtils;
+import com.finance.eclipse.suggestion.utils.Utils;
 
 public final class InlineCompletionController {
 	
-	// Field
+	// field
 	private static final ISchedulingRule COMPLETION_JOB_RULE = new ISchedulingRule() {
 		@Override
 		public boolean isConflicting(ISchedulingRule other) {
@@ -78,6 +93,7 @@ public final class InlineCompletionController {
 	private boolean abortDisabled;
 	private SuggestionPopupDialog suggestionPopupDialog;
 	private Suggestion suggestion;
+	private Future<LlmResponse> llmResponseFuture;
 	
 	
 	// cons 
@@ -100,22 +116,202 @@ public final class InlineCompletionController {
 		this.abortDisabled = false;
 		this.suggestionPopupDialog = null;
 		this.suggestion = null;
+		this.llmResponseFuture = null;
 	}
 	
 	
+	// method
+	public static InlineCompletionController setup(ITextEditor textEditor) {
+		final ITextViewer textViewer = EclipseUtils.getTextViewer(textEditor);
+		return CONTROLLER_BY_VIEWER.computeIfAbsent(textViewer, ignore -> {
+			final InlineCompletionController controller = new InlineCompletionController(textViewer, textEditor);
+			Display.getDefault().syncExec(() -> {
+				((ITextViewerExtension2) textViewer).addPainter(controller.painter);
+				textViewer.getTextWidget().addPaintListener(controller.paintListener);
+				textViewer.getTextWidget().setLineSpacingProvider(controller.spacingProvider);
+				textViewer.getSelectionProvider().addSelectionChangedListener(controller.selectionListener);
+				textViewer.getTextWidget().addCaretListener(controller.caretListener);
+				textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput()).addDocumentListener(controller.documentListener);
+			});
+			return controller;
+		});
+	}
+	
+	private void triggerAutocomplete() {
+		final boolean isDocumentChanged = this.lastChangeCounter != this.changeCounter;
+		this.lastChangeCounter = this.changeCounter;
+//		if (!AiCoderPreferences.isAutocompleteEnabled()) {
+//			return;
+//		}
+
+//		if (AiCoderPreferences.isOnlyOnChangeAutocompleteEnabled() && !isDocumentChanged) {
+//			return;
+//		}
+
+		final boolean isActiveEditor = Display.getDefault().syncCall(() -> {
+			final IWorkbenchPage activePage = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
+			return activePage != null && activePage.getActiveEditor() == InlineCompletionController.this.textEditor;
+		});
+		
+		if (!isActiveEditor) {
+			AiActivator.log().info("Not active editor");
+			return;
+		}
+		
+		this.debouncer.debounce(() -> {
+			if (!EclipseUtils.hasSelection(this.textViewer)) {
+//				trigger(null);
+			}
+		});
+	}
+	
+	/**
+	 * 동작을 위한 trigger 함수 
+	 * @param instruction 지시문
+	 */
+	public void trigger(String instruction){
+		AiActivator.log().info("Trigger");
+		final long startTime = System.currentTimeMillis();
+		abort("Trigger");
+		final StyledText widget = InlineCompletionController.this.textViewer.getTextWidget();
+		final int lineHeight = widget.getLineHeight();
+		final int defaultLineSpacing = widget.getLineSpacing();
+		final IEditorInput editorInput = this.textEditor.getEditorInput();
+		final String filePath = editorInput.getName();
+		final boolean hasSelection = EclipseUtils.hasSelection(this.textViewer);
+		CompletionMode mode;
+		if(hasSelection){
+			if (instruction == null) {
+				mode = CompletionMode.QUICK_FIX;
+			} else {
+				mode = CompletionMode.EDIT;
+			}
+		}else{
+			if (instruction == null) {
+				mode = CompletionMode.INLINE;
+			} else {
+				mode = CompletionMode.GENERATE;
+			}
+		}
+		
+		final AiHistoryEntry historyEntry = new AiHistoryEntry(mode, filePath, this.textViewer.getDocument().get());
+		this.job = new Job("AI completion") {
+			
+			ITextViewer textViewer = InlineCompletionController.this.textViewer;
+			ITextEditor textEditor = InlineCompletionController.this.textEditor;
+			
+			@Override
+			protected IStatus run(IProgressMonitor monitor) {
+				String prompt = "";
+				LlmResponse llmResponse = null;
+				try {
+					final int modelOffset = EclipseUtils.getCurrentOffsetInDocument(InlineCompletionController.this.textEditor);
+					final IDocument document = this.textViewer.getDocument();
+					if (monitor.isCanceled()) {
+						historyEntry.setStatus(HistoryStatus.CANCELED);
+						return Status.CANCEL_STATUS;
+					}
+					AiActivator.log().info("Calculate context");
+					return Status.OK_STATUS;
+				} catch (Exception e) {
+					AiActivator.log().error("AI Coder completion failed", e);
+					final long duration = System.currentTimeMillis() - startTime;
+					final String stacktrace = Utils.getStacktraceString(e);
+					historyEntry.setStatus(HistoryStatus.ERROR);
+					historyEntry.setDurationMs(duration);
+					historyEntry.setLlmDurationMs(0);
+					historyEntry.setPlainLlmResponse(llmResponse != null ? llmResponse.getPlainResponse() : "");
+					historyEntry.setModelLabel(null);
+					historyEntry.setInputTokenCount(0);
+					historyEntry.setOutputTokenCount(0);
+					historyEntry.setInput(prompt);
+					historyEntry.setOutput((llmResponse != null ? llmResponse.getContent() : "") + stacktrace);
+					AiActivator.log().info(historyEntry.toString());
+					return Status.OK_STATUS;
+				}
+				
+			}
+
+			@Override
+			protected void canceling() {
+				cancelHttpRequest();
+			}			
+		};
+		this.job.setRule(COMPLETION_JOB_RULE);
+		this.job.schedule();
+	}
+	
+	private void cancelHttpRequest() {
+		AiActivator.log().info("Canceling");
+		if (this.llmResponseFuture != null) {
+			AiActivator.log().info("Cancel LLM response future");
+			this.llmResponseFuture.cancel(true);
+			this.llmResponseFuture = null;
+		}
+	}
 	
 	
+	/**
+	 * field 초기화
+	 * @param reason 취소 이유
+	 */
+	public void abort(String reason){
+		if(this.abortDisabled) {
+			return;
+		}
+		
+		if (this.llmResponseFuture != null) {
+			AiActivator.log().info(String.format("Cancel LLM response future (reason: '%s')", reason));
+			this.llmResponseFuture.cancel(true);
+			this.llmResponseFuture = null;
+		}
+		
+		if (this.suggestionPopupDialog != null) {
+			AiActivator.log().info(String.format("Close suggestion popup dialog (reason: '%s')", reason));
+			this.suggestionPopupDialog.close();
+			this.suggestionPopupDialog = null;
+			this.textEditor.setFocus();
+		}
+		
+		if (this.job != null) {
+			AiActivator.log().info(String.format("Abort job (reason: '%s')", reason));
+			this.job.cancel();
+			this.job = null;
+		}
+		
+		if (this.context != null) {
+			AiActivator.log().info(String.format("Deactivate context (reason: '%s')", reason));
+			EclipseUtils.getContextService(this.textEditor).deactivateContext(this.context);
+			this.context = null;
+		}
+		
+		if (this.suggestion != null) {
+			AiActivator.log().info(String.format("Unset suggestion (reason: '%s')", reason));
+			if (this.suggestion.historyEntry().getStatus() == HistoryStatus.GENERATED) {
+				this.suggestion.historyEntry().setStatus(HistoryStatus.REJECTED);
+			}
+			this.suggestion = null;
+//			AiCoderHistoryView.get().ifPresent(AiCoderHistoryView::refresh);
+			this.paintListener.resetMetrics();
+		}
+		
+		if (this.completion != null) {
+			AiActivator.log().info(String.format("Unset completions (reason: '%s')", reason));
+			if (this.completion.historyEntry().getStatus() == HistoryStatus.GENERATED) {
+				this.completion.historyEntry().setStatus(HistoryStatus.REJECTED);
+			}
+			this.completion = null;
+//			AiActivator.get().ifPresent(AiCoderHistoryView::refresh);
+			this.paintListener.resetMetrics();
+		}
+	}
 	
-	
-	
-	
-	
-	
+	// implementation
 	private class CaretListenerImplementation implements CaretListener {
 		@Override
 		public void caretMoved(CaretEvent event) {
 			System.out.println("caret Moved!!!!!!!!!!!!!!!!!!!");
-			//triggerAutocomplete();
+			triggerAutocomplete();
 		}
 	}
 	
@@ -128,9 +324,10 @@ public final class InlineCompletionController {
 		@Override
 		public void documentChanged(DocumentEvent event) {
 			InlineCompletionController.this.changeCounter++;
-//			abort("Document changed");
+			abort("Document changed");
 		}
 	}
+	
 	
 	private class SelectionListenerImplementation implements ISelectionChangedListener {
 		@Override
@@ -143,7 +340,7 @@ public final class InlineCompletionController {
 			if (textSelection.getLength() <= 0) {
 				return;
 			}
-//			abort("Selection changed");
+			abort("Selection changed");
 		}
 	}
 	
@@ -155,11 +352,11 @@ public final class InlineCompletionController {
 				return completion.lineSpacing();
 			}
 
-//			final Suggestion suggestion = InlineCompletionController.this.suggestion;
-//			final SuggestionPopupDialog suggestionPopupDialog = InlineCompletionController.this.suggestionPopupDialog;
-//			if (suggestionPopupDialog != null && suggestion != null && suggestion.widgetLastLine() == lineIndex) {
-//				return (suggestionPopupDialog.getLineCount() - suggestion.oldLines() + 2) * InlineCompletionController.this.widget.getLineHeight(); // +2 for the buttons
-//			}
+			final Suggestion suggestion = InlineCompletionController.this.suggestion;
+			final SuggestionPopupDialog suggestionPopupDialog = InlineCompletionController.this.suggestionPopupDialog;
+			if (suggestionPopupDialog != null && suggestion != null && suggestion.widgetLastLine() == lineIndex) {
+				return (suggestionPopupDialog.getLineCount() - suggestion.oldLines() + 2) * InlineCompletionController.this.widget.getLineHeight(); // +2 for the buttons
+			}
 			return null;
 		}
 	}
@@ -237,6 +434,7 @@ public final class InlineCompletionController {
 	}
 	
 	private class PainterImplementation implements IPainter {
+		
 		@Override
 		public void dispose() {
 			CONTROLLER_BY_VIEWER.remove(InlineCompletionController.this.textViewer);
@@ -244,17 +442,19 @@ public final class InlineCompletionController {
 
 		@Override
 		public void paint(int reason) {
+
 		}
 
 		@Override
 		public void deactivate(boolean redraw) {
+
 		}
 
 		@Override
 		public void setPositionManager(IPaintPositionManager manager) {
-			// TODO Auto-generated method stub
-			
+			// TODO Auto-generated method stub			
 		}
+	
 	}
 	
 }
