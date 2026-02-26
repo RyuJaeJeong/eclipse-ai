@@ -6,15 +6,21 @@ import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 
+import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.OperationCanceledException;
 import org.eclipse.core.runtime.Status;
 import org.eclipse.core.runtime.jobs.ISchedulingRule;
 import org.eclipse.core.runtime.jobs.Job;
+import org.eclipse.jdt.core.ICompilationUnit;
+import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.DocumentEvent;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.IDocumentListener;
@@ -58,7 +64,10 @@ import com.finance.eclipse.suggestion.model.context.RootContextEntry;
 import com.finance.eclipse.suggestion.model.history.AiHistoryEntry;
 import com.finance.eclipse.suggestion.model.history.HistoryStatus;
 import com.finance.eclipse.suggestion.model.llm.LlmResponse;
+import com.finance.eclipse.suggestion.utils.AiCodeCleanupUtils;
 import com.finance.eclipse.suggestion.utils.EclipseUtils;
+import com.finance.eclipse.suggestion.utils.LambdaExceptionUtils.Runnable_WithExceptions;
+import com.finance.eclipse.suggestion.utils.LlmUtils;
 import com.finance.eclipse.suggestion.utils.Utils;
 
 public final class InlineCompletionController {
@@ -126,7 +135,7 @@ public final class InlineCompletionController {
 	}
 	
 	
-	// method
+	// method	
 	public static InlineCompletionController setup(ITextEditor textEditor) {
 		final ITextViewer textViewer = EclipseUtils.getTextViewer(textEditor);
 		return CONTROLLER_BY_VIEWER.computeIfAbsent(textViewer, ignore -> {
@@ -144,16 +153,15 @@ public final class InlineCompletionController {
 	}
 	
 	private void triggerAutocomplete() {
-		System.out.println("triggerAutocomplete ==================");
 		final boolean isDocumentChanged = this.lastChangeCounter != this.changeCounter;
 		this.lastChangeCounter = this.changeCounter;
 //		if (!AiCoderPreferences.isAutocompleteEnabled()) {
 //			return;
 //		}
 
-//		if (AiCoderPreferences.isOnlyOnChangeAutocompleteEnabled() && !isDocumentChanged) {
-//			return;
-//		}
+		if (!isDocumentChanged) {
+			return;
+		}
 
 		final boolean isActiveEditor = Display.getDefault().syncCall(() -> {
 			final IWorkbenchPage activePage = PlatformUI.getWorkbench().getActiveWorkbenchWindow().getActivePage();
@@ -177,8 +185,7 @@ public final class InlineCompletionController {
 	 * @param instruction 지시문
 	 */
 	public void trigger(String instruction){
-		AiActivator.log().info("Trigger");
-		System.out.println("Trigger ==================");
+		System.out.println("========== Trigger ==========");
 		final long startTime = System.currentTimeMillis();
 		abort("Trigger");
 		final StyledText widget = InlineCompletionController.this.textViewer.getTextWidget();
@@ -204,10 +211,8 @@ public final class InlineCompletionController {
 		
 		final AiHistoryEntry historyEntry = new AiHistoryEntry(mode, filePath, this.textViewer.getDocument().get());
 		this.job = new Job("AI completion") {
-			
 			ITextViewer textViewer = InlineCompletionController.this.textViewer;
 			ITextEditor textEditor = InlineCompletionController.this.textEditor;
-			
 			@Override
 			protected IStatus run(IProgressMonitor monitor) {
 				String prompt = "";
@@ -219,14 +224,74 @@ public final class InlineCompletionController {
 						historyEntry.setStatus(HistoryStatus.CANCELED);
 						return Status.CANCEL_STATUS;
 					}
+					
 					AiActivator.log().info("Calculate context");
 					final RootContextEntry rootContextEntry = RootContextEntry.create(document, this.textEditor.getEditorInput(), modelOffset);
 					final String contextString = ContextEntry.apply(rootContextEntry, new ContextContext());
 					final String[] contextParts = contextString.split(FillInMiddleContextEntry.FILL_HERE_PLACEHOLDER);
 					final String prefix = contextParts[0];
 					final String suffix = contextParts.length > 1 ? contextParts[1] : "";
-					System.out.println("prefix: " + prefix);
-					System.out.println("suffix: " + suffix);
+					if(mode == CompletionMode.EDIT || mode == CompletionMode.GENERATE || mode == CompletionMode.QUICK_FIX){
+						System.out.println("========== Mode Warning!!!!!!!!!!!! ==========");
+					}else if(mode == CompletionMode.INLINE){
+						prompt = prefix + "<|cursor|>" + suffix;
+						InlineCompletionController.this.llmResponseFuture = LlmUtils.executeFillInTheMiddle(prefix, suffix);
+					}else{
+						throw new IllegalStateException("Unknown completion mode: " + mode);
+					}
+					
+					AiActivator.log().info("Wait for LLM response");
+					try {
+						llmResponse = InlineCompletionController.this.llmResponseFuture.get();
+					}catch(Exception exception) {
+						if(exception.getCause() instanceof CancellationException) {
+							return Status.CANCEL_STATUS;
+						}
+						throw exception;
+					}					
+					
+					if (llmResponse.isError()) {
+						historyEntry.setStatus(HistoryStatus.ERROR);
+						historyEntry.setPlainLlmResponse(llmResponse.getPlainResponse());
+						historyEntry.setModelLabel(llmResponse.getLlmModelOption().getLabel());
+						historyEntry.setInput(prompt);
+						historyEntry.setOutput(llmResponse.getContent());
+						System.out.println(historyEntry.toString());
+						return Status.OK_STATUS;
+					}
+					
+					final String content = Utils.stripCodeMarkdownTags(llmResponse.getContent());
+					final int currentModelOffset = EclipseUtils.getCurrentOffsetInDocument(InlineCompletionController.this.textEditor);
+					final boolean isMultilineContent = content.contains("\n");
+					final boolean isBlank = content.isBlank();
+					final boolean isMoved = currentModelOffset != modelOffset;
+					final boolean isSame = hasSelection? false:isMultilineContent && suffix.replaceAll("\\s", "").startsWith(content.replaceAll("\\s", ""));
+					if (!isBlank && !isMoved && !isSame) {
+						if (mode == CompletionMode.INLINE) {
+							setup(InlineCompletion.create(
+									historyEntry,
+									document,
+									modelOffset,
+									EclipseUtils.getWidgetOffset(this.textViewer, modelOffset),
+									EclipseUtils.getWidgetLine(this.textViewer, modelOffset),
+									content,
+									lineHeight,
+									defaultLineSpacing));
+						} else {
+							throw new IllegalStateException("Unknown completion mode: " + mode);
+						}
+					}
+					final long duration = System.currentTimeMillis() - startTime;
+					historyEntry.setStatus(calculateStatus(isBlank, isMoved, isSame));
+					historyEntry.setDurationMs(duration);
+					historyEntry.setLlmDurationMs(llmResponse.getDuration().toMillis());
+					historyEntry.setPlainLlmResponse(llmResponse.getPlainResponse());
+					historyEntry.setModelLabel(llmResponse.getLlmModelOption().getLabel());
+					historyEntry.setInputTokenCount(llmResponse.getInputTokens());
+					historyEntry.setOutputTokenCount(llmResponse.getOutputTokens());
+					historyEntry.setInput(prompt);
+					historyEntry.setOutput(content);
+					System.out.println(historyEntry.toString());
 					return Status.OK_STATUS;
 				} catch (Exception e) {
 					AiActivator.log().error("AI Coder completion failed", e);
@@ -254,6 +319,7 @@ public final class InlineCompletionController {
 		};
 		this.job.setRule(COMPLETION_JOB_RULE);
 		this.job.schedule();
+		
 	}
 	
 	private void cancelHttpRequest() {
@@ -265,6 +331,46 @@ public final class InlineCompletionController {
 		}
 	}
 	
+	private HistoryStatus calculateStatus(boolean isBlank, boolean isMoved, boolean isSame) {
+		if (isMoved) {
+			return HistoryStatus.MOVED;
+		} else if (isBlank) {
+			return HistoryStatus.BLANK;
+		} else if (isSame) {
+			return HistoryStatus.EQUAL;
+		} else {
+			return HistoryStatus.GENERATED;
+		}
+	}
+	
+	private void setup(InlineCompletion completion) {
+		AiActivator.log().info("Activate context (completion)");
+		this.completion = completion;
+		setupContext();
+		redraw();
+	}
+	
+	private void setupContext() {
+		Display.getDefault().syncExec(() -> {
+			this.context = EclipseUtils.getContextService(this.textEditor).activateContext("com.finance.eclipse.suggestion.inlineCompletionVisible");
+		});
+	}
+	
+	private void redraw() {
+		Display.getDefault().syncExec(() -> {
+			this.textViewer.getTextWidget().redraw();
+		});
+	}
+	
+	private synchronized <T extends Exception> void executeThenAbort(Runnable_WithExceptions<T> runnable, String reason) throws T {
+		try {
+			this.abortDisabled = true;
+			runnable.run();
+		} finally {
+			this.abortDisabled = false;
+			abort(reason);
+		}
+	}
 	
 	/**
 	 * field 초기화
@@ -321,11 +427,62 @@ public final class InlineCompletionController {
 		}
 	}
 	
+	public void accept() {
+		if (this.completion != null) {
+			acceptInlineCompletion();
+		}
+		
+		if (this.suggestion != null) {
+			acceptSuggestion();
+		}
+		
+		if (true) {
+			AiActivator.log().info("Trigger code cleanup on apply");
+			final Optional<ICompilationUnit> compilationUnitOptional = EclipseUtils.getCompilationUnit(this.textEditor.getEditorInput());
+			if (compilationUnitOptional.isPresent()) {
+				final ICompilationUnit compilationUnit = compilationUnitOptional.get();
+				try {
+					AiCodeCleanupUtils.triggerSaveActions(compilationUnit);
+				} catch (OperationCanceledException | CoreException exception) {
+					AiActivator.log().error("Failed to cleanup code", exception);
+				}
+			}
+		}
+	}
+
+	private void acceptInlineCompletion() {
+		try {
+			executeThenAbort(() -> { // prevent early abort by document change
+				this.completion.applyTo(this.textViewer.getDocument());
+				this.textViewer.setSelectedRange(this.completion.modelRegion().getOffset() + this.completion.content().length(), 0);
+				this.completion.historyEntry().setStatus(HistoryStatus.ACCEPTED);
+				this.completion.historyEntry().setContent(this.textViewer.getDocument().get());
+			}, "Accepted");
+		} catch (final BadLocationException exception) {
+			throw new RuntimeException("Failed to accept inline completion", exception);
+		}
+	}
+
+	private void acceptSuggestion() {
+		try {
+			executeThenAbort(() -> { // prevent early abort by document change
+				this.suggestion.applyTo(this.textViewer.getDocument());
+				this.textViewer.setSelectedRange(this.suggestion.modelOffset() + this.suggestion.content().length(), 0);
+				this.suggestion.historyEntry().setStatus(HistoryStatus.ACCEPTED);
+				this.suggestion.historyEntry().setContent(this.textViewer.getDocument().get());
+			}, "Accepted");
+		} catch (final BadLocationException exception) {
+			throw new RuntimeException("Failed to accept suggestion", exception);
+		}
+	}
+
+	
 	// implementation
 	private class CaretListenerImplementation implements CaretListener {
 		@Override
 		public void caretMoved(CaretEvent event) {
 			System.out.println("caret Moved!!!!!!!!!!!!!!!!!!!");
+			abort("Caret moved!");
 			triggerAutocomplete();
 		}
 	}

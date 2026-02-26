@@ -2,6 +2,8 @@ package com.finance.eclipse.suggestion.utils;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.eclipse.jdt.core.Flags;
 import org.eclipse.jdt.core.IType;
@@ -50,5 +52,17 @@ public class Utils {
 			throw new RuntimeException("Failed to get type flags for " + type, exception);
 		}
 	}
+	
+	public static String stripCodeMarkdownTags(final String content) {
+		return content.replaceAll("^```.*\n", "").replaceAll("\n```$", "").replaceAll("```$", "");
+	}
+	
+	public static String joinUriParts(List<String> parts) {
+		return parts.stream()
+				.map(part -> part.replaceAll("^/+", "").replaceAll("/+$", ""))
+				.filter(part -> !part.isEmpty())
+				.collect(Collectors.joining("/"));
+	}
+	
 	
 }

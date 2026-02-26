@@ -3,6 +3,8 @@ package com.finance.eclipse.suggestion.model.llm;
 import java.time.Duration;
 
 public class LlmResponse {
+	
+	// field
 	private final LlmOption llmModelOption;
 	private final String content;
 	private final String plainResponse;
@@ -10,7 +12,8 @@ public class LlmResponse {
 	private final int outputTokens;
 	private final Duration duration;
 	private final boolean error;
-
+	
+	// cons
 	public LlmResponse(LlmOption llmModelOption, String content, String plainResponse, int inputTokens, int outputTokens, Duration duration, boolean error) {
 		this.llmModelOption = llmModelOption;
 		this.content = content;
@@ -20,7 +23,8 @@ public class LlmResponse {
 		this.duration = duration;
 		this.error = error;
 	}
-
+	
+	// method
 	public LlmOption getLlmModelOption() {
 		return this.llmModelOption;
 	}

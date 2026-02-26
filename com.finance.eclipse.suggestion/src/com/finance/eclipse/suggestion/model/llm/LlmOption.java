@@ -25,23 +25,23 @@ public class LlmOption {
 		return this.provider.name() + " - " + this.modelKey;
 	}
 
-	public static LlmOption createFillInMiddleModelOptionFromPreferences() {
+	public static LlmOption createFillInMiddleModelOptionFromPreferences(){
 		return new LlmOption(LlmProvider.OPENAI, "gpt-5-mini-2025-08-07");
 	}
 
-	public static LlmOption createEditModelOptionFromPreferences() {
+	public static LlmOption createEditModelOptionFromPreferences(){
 		return new LlmOption(LlmProvider.OPENAI, "gpt-5-mini-2025-08-07");
 	}
 
-	public static LlmOption createGenerateModelOptionFromPreferences() {
+	public static LlmOption createGenerateModelOptionFromPreferences(){
 		return new LlmOption(LlmProvider.OPENAI, "gpt-5-mini-2025-08-07");
 	}
 
-	public static LlmOption createQuickFixModelOptionFromPreferences() {
+	public static LlmOption createQuickFixModelOptionFromPreferences(){
 		return new LlmOption(LlmProvider.OPENAI, "gpt-5-mini-2025-08-07");
 	}
 
-	public static LlmOption createNextEditModelOptionFromPreferences() {
+	public static LlmOption createNextEditModelOptionFromPreferences(){
 		return new LlmOption(LlmProvider.OPENAI, "gpt-5-mini-2025-08-07");
 	}
 }

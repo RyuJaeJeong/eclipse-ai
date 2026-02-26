@@ -185,5 +185,20 @@ public class AiHistoryEntry {
 			return String.format("%.1fs", milliseconds / 1000.0);
 		}
 	}
+
+
+	@Override
+	public String toString() {
+		return "AiHistoryEntry [timestamp=" + timestamp + ", file=" + file + ", mode=" + mode + ", modelLabel="
+				+ modelLabel + ", status=" + status + ", input=" + input + ", inputCharacterCount="
+				+ inputCharacterCount + ", inputWordCount=" + inputWordCount + ", inputLineCount=" + inputLineCount
+				+ ", output=" + output + ", outputCharacterCount=" + outputCharacterCount + ", outputWordCount="
+				+ outputWordCount + ", outputLineCount=" + outputLineCount + ", inputTokenCount=" + inputTokenCount
+				+ ", outputTokenCount=" + outputTokenCount + ", durationMs=" + durationMs + ", llmDurationMs="
+				+ llmDurationMs + ", plainLlmResponse=" + plainLlmResponse + ", content=" + content
+				+ ", previousContent=" + previousContent + "]";
+	}
+	
+	
 	
 }
