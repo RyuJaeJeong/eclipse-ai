@@ -109,6 +109,7 @@ public final class InlineCompletionController {
 	private SuggestionPopupDialog suggestionPopupDialog;
 	private Suggestion suggestion;
 	private Future<LlmResponse> llmResponseFuture;
+	private boolean isDrawing;
 	
 	
 	// cons 
@@ -425,6 +426,11 @@ public final class InlineCompletionController {
 //			AiActivator.get().ifPresent(AiCoderHistoryView::refresh);
 			this.paintListener.resetMetrics();
 		}
+		
+		if (this.isDrawing) {
+			isDrawing = false;
+		}
+		
 	}
 	
 	public void accept() {
@@ -482,7 +488,7 @@ public final class InlineCompletionController {
 		@Override
 		public void caretMoved(CaretEvent event) {
 			System.out.println("caret Moved!!!!!!!!!!!!!!!!!!!");
-			abort("Caret moved!");
+			if(isDrawing) abort("Caret moved!");
 			triggerAutocomplete();
 		}
 	}
@@ -576,6 +582,7 @@ public final class InlineCompletionController {
 						event.gc.drawText(line.replace("\t", " ".repeat(InlineCompletionController.this.widget.getTabs())), -widget.getHorizontalPixel(), location.y + i * completion.lineHeight(), true);
 					}
 				}
+				isDrawing = true;
 			}
 		}
 
