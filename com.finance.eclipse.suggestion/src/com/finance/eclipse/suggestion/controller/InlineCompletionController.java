@@ -1,7 +1,5 @@
 package com.finance.eclipse.suggestion.controller;
 
-import java.io.File;
-import java.io.FileWriter;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
@@ -26,12 +24,8 @@ import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.IDocumentListener;
 import org.eclipse.jface.text.IPaintPositionManager;
 import org.eclipse.jface.text.IPainter;
-import org.eclipse.jface.text.ITextSelection;
 import org.eclipse.jface.text.ITextViewer;
 import org.eclipse.jface.text.ITextViewerExtension2;
-import org.eclipse.jface.viewers.ISelection;
-import org.eclipse.jface.viewers.ISelectionChangedListener;
-import org.eclipse.jface.viewers.SelectionChangedEvent;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.custom.CaretEvent;
 import org.eclipse.swt.custom.CaretListener;
@@ -54,20 +48,18 @@ import org.eclipse.ui.texteditor.ITextEditor;
 
 import com.finance.eclipse.suggestion.AiActivator;
 import com.finance.eclipse.suggestion.Debouncer;
-import com.finance.eclipse.suggestion.model.CompletionMode;
 import com.finance.eclipse.suggestion.model.InlineCompletion;
-import com.finance.eclipse.suggestion.model.Suggestion;
-import com.finance.eclipse.suggestion.model.context.ContextContext;
-import com.finance.eclipse.suggestion.model.context.ContextEntry;
-import com.finance.eclipse.suggestion.model.context.FillInMiddleContextEntry;
-import com.finance.eclipse.suggestion.model.context.RootContextEntry;
-import com.finance.eclipse.suggestion.model.history.AiHistoryEntry;
-import com.finance.eclipse.suggestion.model.history.HistoryStatus;
-import com.finance.eclipse.suggestion.model.llm.LlmResponse;
+import com.finance.eclipse.suggestion.context.ContextContext;
+import com.finance.eclipse.suggestion.context.ContextEntry;
+import com.finance.eclipse.suggestion.context.FillInMiddleContextEntry;
+import com.finance.eclipse.suggestion.context.RootContextEntry;
+import com.finance.eclipse.suggestion.history.AiHistoryEntry;
+import com.finance.eclipse.suggestion.history.HistoryStatus;
+import com.finance.eclipse.suggestion.llm.LlmResponse;
+import com.finance.eclipse.suggestion.llm.LlmUtils;
 import com.finance.eclipse.suggestion.utils.AiCodeCleanupUtils;
 import com.finance.eclipse.suggestion.utils.EclipseUtils;
 import com.finance.eclipse.suggestion.utils.LambdaExceptionUtils.Runnable_WithExceptions;
-import com.finance.eclipse.suggestion.utils.LlmUtils;
 import com.finance.eclipse.suggestion.utils.Utils;
 
 public final class InlineCompletionController {
@@ -97,7 +89,6 @@ public final class InlineCompletionController {
 	private final DocumentListenerImplementation documentListener;
 	private final PaintListenerImplementation paintListener;
 	private final PainterImplementation painter;
-	private final ISelectionChangedListener selectionListener;
 	private final CaretListener caretListener;
 	private InlineCompletion completion;
 	private IContextActivation context;
@@ -106,11 +97,8 @@ public final class InlineCompletionController {
 	private long lastChangeCounter;
 	private final Debouncer debouncer;
 	private boolean abortDisabled;
-	private SuggestionPopupDialog suggestionPopupDialog;
-	private Suggestion suggestion;
 	private Future<LlmResponse> llmResponseFuture;
 	private boolean isDrawing;
-	
 	
 	// cons 
 	private InlineCompletionController(ITextViewer textViewer, ITextEditor textEditor){
@@ -121,7 +109,6 @@ public final class InlineCompletionController {
 		this.documentListener = new DocumentListenerImplementation();
 		this.paintListener = new PaintListenerImplementation();
 		this.painter = new PainterImplementation();
-		this.selectionListener = new SelectionListenerImplementation();
 		this.caretListener = new CaretListenerImplementation();
 		this.completion = null;
 		this.context = null;
@@ -130,9 +117,8 @@ public final class InlineCompletionController {
 		this.lastChangeCounter = 0;
 		this.debouncer = new Debouncer(Display.getDefault(), () -> Duration.ofMillis(400));
 		this.abortDisabled = false;
-		this.suggestionPopupDialog = null;
-		this.suggestion = null;
 		this.llmResponseFuture = null;
+		this.isDrawing = false;
 	}
 	
 	
@@ -145,7 +131,6 @@ public final class InlineCompletionController {
 				((ITextViewerExtension2) textViewer).addPainter(controller.painter);
 				textViewer.getTextWidget().addPaintListener(controller.paintListener);
 				textViewer.getTextWidget().setLineSpacingProvider(controller.spacingProvider);
-				textViewer.getSelectionProvider().addSelectionChangedListener(controller.selectionListener);
 				textViewer.getTextWidget().addCaretListener(controller.caretListener);
 				textEditor.getDocumentProvider().getDocument(textEditor.getEditorInput()).addDocumentListener(controller.documentListener);
 			});
@@ -186,7 +171,6 @@ public final class InlineCompletionController {
 	 * @param instruction 지시문
 	 */
 	public void trigger(String instruction){
-		System.out.println("========== Trigger ==========");
 		final long startTime = System.currentTimeMillis();
 		abort("Trigger");
 		final StyledText widget = InlineCompletionController.this.textViewer.getTextWidget();
@@ -194,23 +178,8 @@ public final class InlineCompletionController {
 		final int defaultLineSpacing = widget.getLineSpacing();
 		final IEditorInput editorInput = this.textEditor.getEditorInput();
 		final String filePath = editorInput.getName();
-		final boolean hasSelection = EclipseUtils.hasSelection(this.textViewer);
-		CompletionMode mode;
-		if(hasSelection){
-			if (instruction == null) {
-				mode = CompletionMode.QUICK_FIX;
-			} else {
-				mode = CompletionMode.EDIT;
-			}
-		}else{
-			if (instruction == null) {
-				mode = CompletionMode.INLINE;
-			} else {
-				mode = CompletionMode.GENERATE;
-			}
-		}
-		
-		final AiHistoryEntry historyEntry = new AiHistoryEntry(mode, filePath, this.textViewer.getDocument().get());
+		final boolean hasSelection = EclipseUtils.hasSelection(this.textViewer);		
+		final AiHistoryEntry historyEntry = new AiHistoryEntry(filePath, this.textViewer.getDocument().get());
 		this.job = new Job("AI completion") {
 			ITextViewer textViewer = InlineCompletionController.this.textViewer;
 			ITextEditor textEditor = InlineCompletionController.this.textEditor;
@@ -223,6 +192,7 @@ public final class InlineCompletionController {
 					final IDocument document = this.textViewer.getDocument();
 					if (monitor.isCanceled()) {
 						historyEntry.setStatus(HistoryStatus.CANCELED);
+						AiActivator.log().warn(historyEntry.toString());
 						return Status.CANCEL_STATUS;
 					}
 					
@@ -232,15 +202,8 @@ public final class InlineCompletionController {
 					final String[] contextParts = contextString.split(FillInMiddleContextEntry.FILL_HERE_PLACEHOLDER);
 					final String prefix = contextParts[0];
 					final String suffix = contextParts.length > 1 ? contextParts[1] : "";
-					if(mode == CompletionMode.EDIT || mode == CompletionMode.GENERATE || mode == CompletionMode.QUICK_FIX){
-						System.out.println("========== Mode Warning!!!!!!!!!!!! ==========");
-					}else if(mode == CompletionMode.INLINE){
-						prompt = prefix + "<|cursor|>" + suffix;
-						InlineCompletionController.this.llmResponseFuture = LlmUtils.executeFillInTheMiddle(prefix, suffix);
-					}else{
-						throw new IllegalStateException("Unknown completion mode: " + mode);
-					}
-					
+					prompt = prefix + "<|cursor|>" + suffix;
+					InlineCompletionController.this.llmResponseFuture = LlmUtils.executeFillInTheMiddle(prefix, suffix);					
 					AiActivator.log().info("Wait for LLM response");
 					try {
 						llmResponse = InlineCompletionController.this.llmResponseFuture.get();
@@ -249,18 +212,16 @@ public final class InlineCompletionController {
 							return Status.CANCEL_STATUS;
 						}
 						throw exception;
-					}					
-					
+					}															
 					if (llmResponse.isError()) {
 						historyEntry.setStatus(HistoryStatus.ERROR);
 						historyEntry.setPlainLlmResponse(llmResponse.getPlainResponse());
 						historyEntry.setModelLabel(llmResponse.getLlmModelOption().getLabel());
 						historyEntry.setInput(prompt);
 						historyEntry.setOutput(llmResponse.getContent());
-						System.out.println(historyEntry.toString());
+						AiActivator.log().error(historyEntry.toString());
 						return Status.OK_STATUS;
-					}
-					
+					}					
 					final String content = Utils.stripCodeMarkdownTags(llmResponse.getContent());
 					final int currentModelOffset = EclipseUtils.getCurrentOffsetInDocument(InlineCompletionController.this.textEditor);
 					final boolean isMultilineContent = content.contains("\n");
@@ -268,19 +229,15 @@ public final class InlineCompletionController {
 					final boolean isMoved = currentModelOffset != modelOffset;
 					final boolean isSame = hasSelection? false:isMultilineContent && suffix.replaceAll("\\s", "").startsWith(content.replaceAll("\\s", ""));
 					if (!isBlank && !isMoved && !isSame) {
-						if (mode == CompletionMode.INLINE) {
-							setup(InlineCompletion.create(
-									historyEntry,
-									document,
-									modelOffset,
-									EclipseUtils.getWidgetOffset(this.textViewer, modelOffset),
-									EclipseUtils.getWidgetLine(this.textViewer, modelOffset),
-									content,
-									lineHeight,
-									defaultLineSpacing));
-						} else {
-							throw new IllegalStateException("Unknown completion mode: " + mode);
-						}
+						setup(InlineCompletion.create(
+								historyEntry,
+								document,
+								modelOffset,
+								EclipseUtils.getWidgetOffset(this.textViewer, modelOffset),
+								EclipseUtils.getWidgetLine(this.textViewer, modelOffset),
+								content,
+								lineHeight,
+								defaultLineSpacing));
 					}
 					final long duration = System.currentTimeMillis() - startTime;
 					historyEntry.setStatus(calculateStatus(isBlank, isMoved, isSame));
@@ -292,7 +249,7 @@ public final class InlineCompletionController {
 					historyEntry.setOutputTokenCount(llmResponse.getOutputTokens());
 					historyEntry.setInput(prompt);
 					historyEntry.setOutput(content);
-					System.out.println(historyEntry.toString());
+					AiActivator.log().info(historyEntry.toString());
 					return Status.OK_STATUS;
 				} catch (Exception e) {
 					AiActivator.log().error("AI Coder completion failed", e);
@@ -307,7 +264,7 @@ public final class InlineCompletionController {
 					historyEntry.setOutputTokenCount(0);
 					historyEntry.setInput(prompt);
 					historyEntry.setOutput((llmResponse != null ? llmResponse.getContent() : "") + stacktrace);
-					AiActivator.log().info(historyEntry.toString());
+					AiActivator.log().error(historyEntry.toString());
 					return Status.OK_STATUS;
 				}
 				
@@ -315,6 +272,7 @@ public final class InlineCompletionController {
 
 			@Override
 			protected void canceling() {
+				AiActivator.log().info("AI Coder completion Job Canceled!!!");
 				cancelHttpRequest();
 			}			
 		};
@@ -388,12 +346,6 @@ public final class InlineCompletionController {
 			this.llmResponseFuture = null;
 		}
 		
-		if (this.suggestionPopupDialog != null) {
-			AiActivator.log().info(String.format("Close suggestion popup dialog (reason: '%s')", reason));
-			this.suggestionPopupDialog.close();
-			this.suggestionPopupDialog = null;
-			this.textEditor.setFocus();
-		}
 		
 		if (this.job != null) {
 			AiActivator.log().info(String.format("Abort job (reason: '%s')", reason));
@@ -407,39 +359,19 @@ public final class InlineCompletionController {
 			this.context = null;
 		}
 		
-		if (this.suggestion != null) {
-			AiActivator.log().info(String.format("Unset suggestion (reason: '%s')", reason));
-			if (this.suggestion.historyEntry().getStatus() == HistoryStatus.GENERATED) {
-				this.suggestion.historyEntry().setStatus(HistoryStatus.REJECTED);
-			}
-			this.suggestion = null;
-//			AiCoderHistoryView.get().ifPresent(AiCoderHistoryView::refresh);
-			this.paintListener.resetMetrics();
-		}
-		
 		if (this.completion != null) {
 			AiActivator.log().info(String.format("Unset completions (reason: '%s')", reason));
 			if (this.completion.historyEntry().getStatus() == HistoryStatus.GENERATED) {
 				this.completion.historyEntry().setStatus(HistoryStatus.REJECTED);
 			}
 			this.completion = null;
-//			AiActivator.get().ifPresent(AiCoderHistoryView::refresh);
 			this.paintListener.resetMetrics();
 		}
-		
-		if (this.isDrawing) {
-			isDrawing = false;
-		}
-		
 	}
 	
 	public void accept() {
 		if (this.completion != null) {
 			acceptInlineCompletion();
-		}
-		
-		if (this.suggestion != null) {
-			acceptSuggestion();
 		}
 		
 		if (true) {
@@ -458,7 +390,7 @@ public final class InlineCompletionController {
 
 	private void acceptInlineCompletion() {
 		try {
-			executeThenAbort(() -> { // prevent early abort by document change
+			executeThenAbort(() -> { 
 				this.completion.applyTo(this.textViewer.getDocument());
 				this.textViewer.setSelectedRange(this.completion.modelRegion().getOffset() + this.completion.content().length(), 0);
 				this.completion.historyEntry().setStatus(HistoryStatus.ACCEPTED);
@@ -468,27 +400,13 @@ public final class InlineCompletionController {
 			throw new RuntimeException("Failed to accept inline completion", exception);
 		}
 	}
-
-	private void acceptSuggestion() {
-		try {
-			executeThenAbort(() -> { // prevent early abort by document change
-				this.suggestion.applyTo(this.textViewer.getDocument());
-				this.textViewer.setSelectedRange(this.suggestion.modelOffset() + this.suggestion.content().length(), 0);
-				this.suggestion.historyEntry().setStatus(HistoryStatus.ACCEPTED);
-				this.suggestion.historyEntry().setContent(this.textViewer.getDocument().get());
-			}, "Accepted");
-		} catch (final BadLocationException exception) {
-			throw new RuntimeException("Failed to accept suggestion", exception);
-		}
-	}
-
 	
 	// implementation
 	private class CaretListenerImplementation implements CaretListener {
 		@Override
 		public void caretMoved(CaretEvent event) {
 			System.out.println("caret Moved!!!!!!!!!!!!!!!!!!!");
-			if(isDrawing) abort("Caret moved!");
+			abort("Caret moved!");
 			triggerAutocomplete();
 		}
 	}
@@ -504,23 +422,8 @@ public final class InlineCompletionController {
 			InlineCompletionController.this.changeCounter++;
 			abort("Document changed");
 		}
-	}
+	}	
 	
-	
-	private class SelectionListenerImplementation implements ISelectionChangedListener {
-		@Override
-		public void selectionChanged(SelectionChangedEvent event) {
-			final ISelection selection = event.getSelection();
-			if (!(selection instanceof ITextSelection)) {
-				return;
-			}
-			final ITextSelection textSelection = (ITextSelection) selection;
-			if (textSelection.getLength() <= 0) {
-				return;
-			}
-			abort("Selection changed");
-		}
-	}
 	
 	private class StyledTextLineSpacingProviderImplementation implements StyledTextLineSpacingProvider {
 		@Override
@@ -529,27 +432,18 @@ public final class InlineCompletionController {
 			if (completion != null && completion.widgetLineIndex() == lineIndex) {
 				return completion.lineSpacing();
 			}
-
-			final Suggestion suggestion = InlineCompletionController.this.suggestion;
-			final SuggestionPopupDialog suggestionPopupDialog = InlineCompletionController.this.suggestionPopupDialog;
-			if (suggestionPopupDialog != null && suggestion != null && suggestion.widgetLastLine() == lineIndex) {
-				return (suggestionPopupDialog.getLineCount() - suggestion.oldLines() + 2) * InlineCompletionController.this.widget.getLineHeight(); // +2 for the buttons
-			}
 			return null;
 		}
 	}
 	
 	private class PaintListenerImplementation implements PaintListener {
 		
-		// field
 		private final Set<GlyphMetrics> modifiedMetrics;
 		
-		// cons
 		public PaintListenerImplementation() {
 			this.modifiedMetrics = new HashSet<>();
 		}
 		
-		// method
 		@Override
 		public void paintControl(PaintEvent event) {
 			final StyledText widget = InlineCompletionController.this.textViewer.getTextWidget();
@@ -564,7 +458,6 @@ public final class InlineCompletionController {
 				for (int i = 0; i < lines.size(); i++) {
 					final String line = lines.get(i);
 					if (i == 0) {
-						// first line
 						event.gc.drawText(completion.firstLineFillPrefix(), location.x, location.y, true);
 						if (completion.firstLineSuffixCharacter() != null) {
 							final int suffixCharacterWidth = event.gc.textExtent(completion.firstLineSuffixCharacter()).x;
@@ -582,7 +475,6 @@ public final class InlineCompletionController {
 						event.gc.drawText(line.replace("\t", " ".repeat(InlineCompletionController.this.widget.getTabs())), -widget.getHorizontalPixel(), location.y + i * completion.lineHeight(), true);
 					}
 				}
-				isDrawing = true;
 			}
 		}
 

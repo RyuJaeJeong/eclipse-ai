@@ -10,7 +10,7 @@ import org.eclipse.jface.text.IRegion;
 import org.eclipse.jface.text.Region;
 
 import com.finance.eclipse.suggestion.AiActivator;
-import com.finance.eclipse.suggestion.model.history.AiHistoryEntry;
+import com.finance.eclipse.suggestion.history.AiHistoryEntry;
 
 public class InlineCompletion {
 	

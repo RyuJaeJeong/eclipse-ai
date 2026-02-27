@@ -13,8 +13,8 @@ import org.eclipse.core.runtime.preferences.InstanceScope;
 import org.osgi.service.prefs.Preferences;
 
 import com.finance.eclipse.suggestion.AiActivator;
-import com.finance.eclipse.suggestion.model.context.ContextEntryKey;
-import com.finance.eclipse.suggestion.model.context.CustomContextEntryData;
+import com.finance.eclipse.suggestion.context.ContextEntryKey;
+import com.finance.eclipse.suggestion.context.CustomContextEntryData;
 
 import mjson.Json;
 
