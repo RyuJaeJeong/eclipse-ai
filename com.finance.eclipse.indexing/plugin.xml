@@ -7,4 +7,10 @@
             class="com.finance.eclipse.indexing.IndexingStartup">
       </startup>
    </extension>
+   <extension
+         point="org.eclipse.ui.handlers">
+      <handler
+            commandId="com.finance.eclipse.indexing.IndexingHandler">
+      </handler>
+   </extension>
 </plugin>
