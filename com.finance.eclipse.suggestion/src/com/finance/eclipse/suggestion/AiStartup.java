@@ -15,7 +15,8 @@ import org.eclipse.ui.texteditor.ITextEditor;
 import com.finance.eclipse.suggestion.controller.InlineCompletionController;
 
 public class AiStartup implements IStartup {
-
+	
+	// Method
 	@Override
 	public void earlyStartup() {
 		AiActivator.log().info("Hello, world!");

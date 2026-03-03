@@ -1,0 +1,12 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: Indexing
+Bundle-SymbolicName: com.finance.eclipse.indexing;singleton:=true
+Bundle-Version: 1.0.0.qualifier
+Bundle-Activator: com.finance.eclipse.indexing.IndexingActivator
+Bundle-Vendor: FINANCE
+Require-Bundle: org.eclipse.ui,
+ org.eclipse.core.runtime
+Bundle-RequiredExecutionEnvironment: JavaSE-21
+Automatic-Module-Name: com.finance.eclipse.indexing
+Bundle-ActivationPolicy: lazy
