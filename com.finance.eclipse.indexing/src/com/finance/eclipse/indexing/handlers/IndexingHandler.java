@@ -16,7 +16,6 @@ import org.eclipse.jdt.core.IPackageFragmentRoot;
 import org.eclipse.jdt.core.IType;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
-import org.eclipse.jface.text.Document;
 
 public class IndexingHandler extends AbstractHandler {
 
@@ -36,8 +35,6 @@ public class IndexingHandler extends AbstractHandler {
 	}
 
 	private void printProjectInfo(IProject project) throws CoreException, JavaModelException {
-		System.out.println("Working in project " + project.getName());
-		// check if we have a Java project
 		if (project.isNatureEnabled("org.eclipse.jdt.core.javanature")) {
 			IJavaProject javaProject = JavaCore.create(project);
 			printPackageInfos(javaProject);
@@ -47,25 +44,16 @@ public class IndexingHandler extends AbstractHandler {
 	private void printPackageInfos(IJavaProject javaProject) throws JavaModelException {
 		IPackageFragment[] packages = javaProject.getPackageFragments();
 		for (IPackageFragment mypackage : packages) {
-			// Package fragments include all packages in the
-			// classpath
-			// We will only look at the package from the source
-			// folder
-			// K_BINARY would include included JARS, e.g.
-			// rt.jar
 			if (mypackage.getKind() == IPackageFragmentRoot.K_SOURCE) {
 				System.out.println("Package " + mypackage.getElementName());
 				printICompilationUnitInfo(mypackage);
-
 			}
-
 		}
 	}
 
 	private void printICompilationUnitInfo(IPackageFragment mypackage) throws JavaModelException {
 		for (ICompilationUnit unit : mypackage.getCompilationUnits()) {
 			printCompilationUnitDetails(unit);
-
 		}
 	}
 
@@ -77,19 +65,25 @@ public class IndexingHandler extends AbstractHandler {
 	}
 
 	private void printCompilationUnitDetails(ICompilationUnit unit) throws JavaModelException {
-		System.out.println("Source file " + unit.getElementName());
-		Document doc = new Document(unit.getSource());
-		System.out.println("Has number of lines: " + doc.getNumberOfLines());
 		printIMethods(unit);
 	}
 
 	private void printIMethodDetails(IType type) throws JavaModelException {
 		IMethod[] methods = type.getMethods();
+		
 		for (IMethod method : methods) {
-			System.out.println("Method name " + method.getElementName());
-			System.out.println("Signature " + method.getSignature());
-			System.out.println("Return Type " + method.getReturnType());
-
+			System.out.println("symbol: " + "");
+			System.out.println("name: " + method.getElementName());
+			System.out.println("signature: " + method.getSignature());
+			System.out.println("Code type: Method");
+			System.out.println("docstring: " + "");
+			System.out.println();
+			System.out.println("context.module: " + "");
+			System.out.println("context.file_path: " + "");
+			System.out.println("context.file_name: " + "");
+			System.out.println("context.struct_name: " + "");
+			System.out.println("context.snippet: " + method.getSource());
+			System.out.println("=============================================");
 		}
 	}
 
