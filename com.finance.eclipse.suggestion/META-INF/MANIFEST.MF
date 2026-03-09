@@ -3,18 +3,7 @@ Bundle-ManifestVersion: 2
 Bundle-Name: Suggestion
 Bundle-SymbolicName: com.finance.eclipse.suggestion;singleton:=true
 Bundle-Version: 1.0.0.qualifier
-Import-Package: com.fasterxml.jackson.core;version="[2.20.0,3.0.0)",
- com.fasterxml.jackson.core.base;version="[2.20.0,3.0.0)",
- com.fasterxml.jackson.core.io;version="[2.20.0,3.0.0)",
- com.fasterxml.jackson.core.io.schubfach;version="[2.20.0,3.0.0)",
- com.fasterxml.jackson.core.util;version="[2.20.0,3.0.0)",
- com.fasterxml.jackson.databind;version="[2.20.0,3.0.0)",
- com.fasterxml.jackson.databind.deser;version="[2.20.0,3.0.0)",
- com.fasterxml.jackson.databind.deser.std;version="[2.20.0,3.0.0)",
- com.fasterxml.jackson.databind.ser;version="[2.20.0,3.0.0)",
- com.fasterxml.jackson.databind.ser.std;version="[2.20.0,3.0.0)",
- com.fasterxml.jackson.databind.type;version="[2.20.0,3.0.0)",
- com.google.common.base;version="[33.5.0,34.0.0)",
+Import-Package: com.google.common.base;version="[33.5.0,34.0.0)",
  com.google.common.collect;version="[33.5.0,34.0.0)",
  org.apache.commons.lang3;version="[3.20.0,4.0.0)",
  org.eclipse.core.resources,
@@ -33,7 +22,10 @@ Bundle-ClassPath: .,
  libs/jackson-datatype-jdk8-2.20.0.jar,
  libs/immutables-exceptions-1.2.jar,
  libs/jackson-dataformat-yaml-2.17.2.jar,
- libs/re2j-1.5.jar
+ libs/re2j-1.5.jar,
+ libs/jackson-annotations-2.20.jar,
+ libs/jackson-core-2.20.1.jar,
+ libs/jackson-databind-2.20.1.jar
 Bundle-Vendor: FINANCE
 Require-Bundle: org.eclipse.ui,
  org.eclipse.core.runtime,
