@@ -4,8 +4,8 @@ Bundle-Name: Indexing
 Bundle-SymbolicName: com.finance.eclipse.indexing;singleton:=true
 Bundle-Version: 1.0.0.qualifier
 Bundle-Activator: com.finance.eclipse.indexing.IndexingActivator
-Bundle-ClassPath: libs/mjson-1.4.2.jar,
- .
+Bundle-ClassPath: .,
+ libs/mjson-1.4.2.jar
 Bundle-Vendor: FINANCE
 Require-Bundle: org.eclipse.ui,
  org.eclipse.core.runtime,
