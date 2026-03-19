@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="ASCII"?>
+<fragment:ModelFragments xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:commands="http://www.eclipse.org/ui/2010/UIModel/application/commands" xmlns:fragment="http://www.eclipse.org/ui/2010/UIModel/fragment" xmlns:menu="http://www.eclipse.org/ui/2010/UIModel/application/ui/menu" xmi:id="_ab-CYCNqEfGBcb6OiWPoBA">
+  <fragments xsi:type="fragment:StringModelFragment" xmi:id="_ey930CNqEfGBcb6OiWPoBA" featurename="menuContributions" parentElementId="xpath:/">
+    <elements xsi:type="menu:MenuContribution" xmi:id="_qdwrACNqEfGBcb6OiWPoBA" elementId="com.finance.eclipse.tdd.menucontribution.0" parentId="#CompilationUnitEditorContext">
+      <children xsi:type="menu:Menu" xmi:id="_y6JBcCNqEfGBcb6OiWPoBA" elementId="com.finance.eclipse.tdd.menu.aiassistant" label="AI Assistant">
+        <children xsi:type="menu:HandledMenuItem" xmi:id="_2I6DgCNqEfGBcb6OiWPoBA" elementId="com.finance.eclipse.tdd.handledmenuitem.generatetestcode" label="Generate Test Code" command="_KAnNwCNrEfGBcb6OiWPoBA"/>
+      </children>
+    </elements>
+  </fragments>
+  <fragments xsi:type="fragment:StringModelFragment" xmi:id="_6nPQACNqEfGBcb6OiWPoBA" featurename="handlers" parentElementId="xpath:/">
+    <elements xsi:type="commands:Handler" xmi:id="_9CACQCNqEfGBcb6OiWPoBA" elementId="com.finance.eclipse.tdd.handler.0" contributionURI="bundleclass://com.finance.eclipse.tdd/com.finance.eclipse.tdd.handlers.GenerateTestCodeHandler" command="_KAnNwCNrEfGBcb6OiWPoBA">
+      <persistedState key="persistState" value="false"/>
+    </elements>
+  </fragments>
+  <fragments xsi:type="fragment:StringModelFragment" xmi:id="_DmqCECNrEfGBcb6OiWPoBA" featurename="commands" parentElementId="xpath:/">
+    <elements xsi:type="commands:Command" xmi:id="_KAnNwCNrEfGBcb6OiWPoBA" elementId="com.finance.eclipse.tdd.command.testcodegenerationcommand" commandName="Test Code Generation Command"/>
+  </fragments>
+</fragment:ModelFragments>
